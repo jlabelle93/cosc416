@@ -1,0 +1,37 @@
+Q1.
+FALSE
+
+Q2.
+MATCH (b:Book) WHERE substring...
+MATCH (b:Book) WHERE b.title STARTS WITH ...
+MATCH (b:Book) WHERE left(b.title,5) ...
+
+Q3.
+With SET and REMOVE
+
+Q4.
+Improve Query Performance
+Eliminate duplication of data in multiple nodes
+
+Q5.
+Reduce the number of nodes that need to be retrieved
+Improve query performance
+
+Q6.
+Labels are tags used to group similar nodes into sets
+A node may have zero, one or more labels
+Labels map to database tables
+
+Q7.
+The query creates a :WROTE relationship and a Book with title 'Harry Potter', only if there is a Person with name 'J.K. Rowling' and if there is no Book with title 'Harry Potter' or no :WROTE relationship to it
+
+Q8.
+The query returns string property names, not actual Person nodes
+First two authors are never included in the result
+We limit the result to only one or more specific authors by id
+
+Q9.
+The PROFILE keyword is used to return the query plan and execution information for a Cypher statement
+
+Q10.
+All friends of the friends of John Doe
