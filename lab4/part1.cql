@@ -111,17 +111,35 @@ LIMIT 5;
 // Q8:
 // 
 // Will it work well for other users? 
-//
+// 
+// Darlene does not represent your typical user. She has a wealth of data to draw from to create recommendations.
+// However, the approach to recommendation that I have taken would work well with a user who has consumed a fairly significant amount of content.
 //
 // Can it break down? What are the implicit conditions of its applicability?
 //
+// This approach definitely hits limits for new users or for users that have watched a small amount of films. Obviously with new users, the cold start
+// problem applies from a purely content based approach. This could be remedied by layering in the collaborative filtering approach. With users who have watched
+// a small amount of films, the problem could also be that they do not have a perceptible trend in their viewing habits. Let's say a user has watched less than 10 movies,
+// and there has been no repetition of any genre in that data set. Improbable, but possible. Attempting to make a recommendation based on the above approach will
+// prove to be difficult as there is no defined "taste preference". We could approach purely from a highly-rated film perspective and give some recommendations on that front,
+// but even that may not be a reliable source as overall ratings are a very high level look at a very subjective metric.
 //
 // How to compensate the bias caused by the uneven representation of genres in the database?
-//
+// 
+// We could apply some form of ranking based on the percentage of the database a certain genre represents. Genres that occur frequently would have a 
+// fractional multiplier applied to them, while underrepresented genres could just have a multiplier applied. This seems like the most logical way to
+// compensate for the prevalence of Drama in particular. Another more complex approach could possibly be to put more emphasis on the secondary genres associated
+// with a movie that has the Drama genre attached to it.
 //
 // Should this bias be compensated? Discuss pro and contra arguments.
 //
+// Any attempt at reducing bias runs significant risk of injecting more bias in the system. An argument in favour of introducing a form of compensation
+// would be the obvious: allow users to interact with content that is perhaps underserved or underrepresented. It may also serve user taste profiles to serve
+// this content as they may prefer niche movies or say, low rated movies. However, this system would need constant tweaks as new movies are added to the database.
+// This could lead to other problems where new movies belonging solely to a dominant genre would then be suppressed in recommendations and artificially have engagement
+// lowered.
 //
 // Other thoughts based on your understanding?
 //
-//
+// Content based filtering has strengths in a large datasource, where there has been enough user engagement to develop a rough profile of the user.
+// In order to make recommendations with this, we do need a fair amount of inferred information about the user based on their habits using the system.
