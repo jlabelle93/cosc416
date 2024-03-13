@@ -71,7 +71,7 @@ ORDER BY Rating DESC;
 └───────────┴──────┘
 
 // We can make a guess that War films generally resonate more with Darlene than say, a Comedy. Whether this is due to
-// consistencies or other qualifiers in the genres themselves, I can't say for certain.\
+// consistencies or other qualifiers in the genres themselves, I can't say for certain.
 
 // Q3: What approach would work better in the real-life scenario? Why?
 // In the real-life scenario, for this case specifically, I think accounting for ratings gives us a more accurate reflection
