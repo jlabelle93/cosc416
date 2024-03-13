@@ -31,7 +31,7 @@ WHERE ANY(item IN genres WHERE item IN ['War', 'Film-Noir'])
 RETURN m.movieId, m.title, genres, round(avg(r.rating), 2) AS Ratings
 ORDER BY Ratings DESC
 LIMIT 100;
-// Here's a list of possible recommendations for any film in the War or Film-Noir genres that Darlene hasn't watched,\
+// Here's a list of possible recommendations for any film in the War or Film-Noir genres that Darlene hasn't watched,
 // ranked by their average user rating.
 // If we wanted to restrict it to movies that are both War and Film-Noir then...
 MATCH (p:User {name:'Darlene Garcia'}), (m:Movie)-[:IN_GENRE]->(g:Genre)
@@ -49,42 +49,52 @@ MATCH (:User)-[r:RATED]->(m:Movie)
 RETURN m.movieId AS ID, m.title AS Movie, round(avg(r.rating), 2) AS Rating
 ORDER BY Rating DESC
 
+// So with the clarifications from lab, we take the top recommendations Darlene would make for the War and Film-Noir genres...
+MATCH (p:User {name:'Darlene Garcia'}), (m:Movie)-[:IN_GENRE]->(g:Genre)
+WHERE NOT (p)-[:RATED]->(m)
+WITH collect(g.name) AS genres, m
+WHERE ANY(item IN genres WHERE item IN ['War', 'Film-Noir'])
+RETURN m.movieId, m.title, genres
+LIMIT 100;
+// Returns a list of 100 movies we could recommend to Darlene based on her preferences for the War or Film-Noir genres. This list of movies is not
+// currently sorted by any metric and represents purely a sample of movies she has not seen from these genres.
+
 // Q5: Use imdbRating data as a score to rank the recommended movies
 MATCH (p:User {name:'Darlene Garcia'}), (m:Movie)-[:IN_GENRE]->(g:Genre)
 WHERE NOT (p)-[:RATED]->(m)
 WITH collect(g.name) AS genres, m
-MATCH (m)<-[r:RATED]-(:User)
 WHERE ANY(item IN genres WHERE item IN ['War', 'Film-Noir'])
-RETURN m.movieId, m.title, genres, round(avg(r.rating), 2) AS Ratings, m.imdbRating AS IMDB_Score
+RETURN m.movieId, m.title, genres, m.imdbRating AS IMDB_Score
 ORDER BY IMDB_Score DESC
 LIMIT 100;
-// This results in a different list when we rank the possible recommendations by IMDB rating instead.
+// This results in a different list when we rank the possible recommendations by IMDB rating instead. There seems to be a trend where war movies are more highly
+// rated in their IMDB scores.
 
 // Q6: Create the Top 5 Movies to Watch list
 // Using IMDB Ratings...
 MATCH (p:User {name:'Darlene Garcia'}), (m:Movie)-[:IN_GENRE]->(g:Genre)
 WHERE NOT (p)-[:RATED]->(m)
 WITH collect(g.name) AS genres, m
-MATCH (m)<-[r:RATED]-(:User)
 WHERE ANY(item IN genres WHERE item IN ['War', 'Film-Noir'])
-RETURN m.movieId, m.title, genres, round(avg(r.rating), 2) AS Ratings, m.imdbRating AS IMDB_Score
+RETURN m.movieId, m.title, genres, m.imdbRating AS IMDB_Score
 ORDER BY IMDB_Score DESC
 LIMIT 5;
 // With the results:
-╒═════════╤══════════════════════╤══════════════════════════╤═══════╤══════════╕
-│m.movieId│m.title               │genres                    │Ratings│IMDB_Score│
-╞═════════╪══════════════════════╪══════════════════════════╪═══════╪══════════╡
-│7502     │"Band of Brothers"    │["Action", "Drama", "War"]│4.39   │9.6       │
-├─────────┼──────────────────────┼──────────────────────────┼───────┼──────────┤
-│93040    │"Civil War, The"      │["War", "Documentary"]    │4.67   │9.5       │
-├─────────┼──────────────────────┼──────────────────────────┼───────┼──────────┤
-│108709   │"Generation Kill"     │["Drama", "War"]          │5.0    │8.7       │
-├─────────┼──────────────────────┼──────────────────────────┼───────┼──────────┤
-│27611    │"Battlestar Galactica"│["Sci-Fi", "Drama", "War"]│3.43   │8.7       │
-├─────────┼──────────────────────┼──────────────────────────┼───────┼──────────┤
-│2028     │"Saving Private Ryan" │["Action", "Drama", "War"]│3.95   │8.6       │
-└─────────┴──────────────────────┴──────────────────────────┴───────┴──────────┘
+╒═════════╤══════════════════════╤══════════════════════════╤══════════╕
+│m.movieId│m.title               │genres                    │IMDB_Score│
+╞═════════╪══════════════════════╪══════════════════════════╪══════════╡
+│7502     │"Band of Brothers"    │["Action", "Drama", "War"]│9.6       │
+├─────────┼──────────────────────┼──────────────────────────┼──────────┤
+│93040    │"Civil War, The"      │["War", "Documentary"]    │9.5       │
+├─────────┼──────────────────────┼──────────────────────────┼──────────┤
+│27611    │"Battlestar Galactica"│["Sci-Fi", "Drama", "War"]│8.7       │
+├─────────┼──────────────────────┼──────────────────────────┼──────────┤
+│108709   │"Generation Kill"     │["Drama", "War"]          │8.7       │
+├─────────┼──────────────────────┼──────────────────────────┼──────────┤
+│2028     │"Saving Private Ryan" │["Action", "Drama", "War"]│8.6       │
+└─────────┴──────────────────────┴──────────────────────────┴──────────┘
 
+// Disregard this section... left in to show a direction I was pursuing before clarification
 // Using average user ratings...
 MATCH (p:User {name:'Darlene Garcia'}), (m:Movie)-[:IN_GENRE]->(g:Genre)
 WHERE NOT (p)-[:RATED]->(m)
@@ -123,7 +133,10 @@ LIMIT 100;
 // can be discerned.
 //
 // Should we attempt to compensate for the bias?
+// 
 // I would essentially repeat my arguments from Part 1 here again. The only bias we may need to compensate for would be the scenarios
 // where there are a small number of user reviews that are on either extreme of the review scale. However, we once more run into the problem
-// where we could cause artificial suppression of certain movies based on our efforts to more faily present some titles to users.
+// where we could cause artificial suppression of certain movies based on our efforts to more faily present some titles to users. This could also
+// extend to IMDB Score, as I believe that is an aggregate of critic reviews. Movies with a smaller number of critic reviews could lead to a more skewed IMDB
+// score.
 
