@@ -96,3 +96,61 @@ LIMIT 5;
 ├─────────────────┼─────────┼──────┼──────────────────────────────┼───────┼─────────┤
 │"Julia Compton"  │726      │432   │["Drama", "Comedy", "Romance"]│0.1609 │3        │
 └─────────────────┴─────────┴──────┴──────────────────────────────┴───────┴─────────┘
+
+
+MATCH (p:User)-[:RATED]->(m:Movie)-[:IN_GENRE]->(g:Genre)
+WHERE NOT p.name = 'Darlene Garcia' AND g.name IN ['Drama', 'Comedy', 'Romance']
+WITH p AS peer, collect(m.movieId) AS peerMovies
+MATCH (d:User {name: 'Darlene Garcia'})-[:RATED]->(m2:Movie)
+WITH peer, peerMovies, collect(m2.movieId) AS darleneMovies
+WITH peer, apoc.coll.subtract(peerMovies, darleneMovies) AS possRecommendations
+WHERE peer.name IN ['Larry Boyd', 'Crystal Spencer', 'John Herrera', 'Marissa Choi', 'Julia Compton']
+CALL {
+    WITH peer, possRecommendations
+    MATCH (m:Movie)
+    WHERE m.movieId IN possRecommendations AND NOT m.imdbRating IS null 
+    WITH peer, m, m.imdbRating AS rating ORDER BY rating DESC
+    RETURN peer AS p, collect(m.title)[0..5] AS top5
+}
+WITH peer, top5
+UNWIND top5 AS title
+RETURN DISTINCT title AS Recommendation, count(title) AS Votes
+ORDER BY Votes DESC
+LIMIT 5;
+
+╒═════════════════╤══════════════════════════════════════════════════════════════════════╕
+│Peer             │Top_5_Suggestions                                                     │
+╞═════════════════╪══════════════════════════════════════════════════════════════════════╡
+│"Larry Boyd"     │["Léon: The Professional (a.k.a. The Professional) (Léon)", "Saving Pr│
+│                 │ivate Ryan", "Braveheart", "Scarface", "Bill Cosby, Himself"]         │
+├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+│"Marissa Choi"   │["Léon: The Professional (a.k.a. The Professional) (Léon)", "Saving Pr│
+│                 │ivate Ryan", "Lion King, The", "Braveheart", "Princess Mononoke (Monon│
+│                 │oke-hime)"]                                                           │
+├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+│"Julia Compton"  │["Lord of the Rings: The Return of the King, The", "Léon: The Professi│
+│                 │onal (a.k.a. The Professional) (Léon)", "Saving Private Ryan", "Great │
+│                 │Dictator, The", "Children of Heaven, The (Bacheha-Ye Aseman)"]        │
+├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+│"John Herrera"   │["Lord of the Rings: The Return of the King, The", "Léon: The Professi│
+│                 │onal (a.k.a. The Professional) (Léon)", "Once Upon a Time in the West │
+│                 │(C'era una volta il West)", "Saving Private Ryan", "Lion King, The"]  │
+├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+│"Crystal Spencer"│["Lord of the Rings: The Return of the King, The", "Léon: The Professi│
+│                 │onal (a.k.a. The Professional) (Léon)", "Saving Private Ryan", "Lion K│
+│                 │ing, The", "Great Dictator, The"]                                     │
+└─────────────────┴──────────────────────────────────────────────────────────────────────┘
+
+╒═════════════════════════════════════════════════════════╤═════╕
+│Recommendation                                           │Votes│
+╞═════════════════════════════════════════════════════════╪═════╡
+│"Léon: The Professional (a.k.a. The Professional) (Léon)"│5    │
+├─────────────────────────────────────────────────────────┼─────┤
+│"Saving Private Ryan"                                    │5    │
+├─────────────────────────────────────────────────────────┼─────┤
+│"Lord of the Rings: The Return of the King, The"         │3    │
+├─────────────────────────────────────────────────────────┼─────┤
+│"Lion King, The"                                         │3    │
+├─────────────────────────────────────────────────────────┼─────┤
+│"Braveheart"                                             │2    │
+└─────────────────────────────────────────────────────────┴─────┘
