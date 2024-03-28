@@ -154,3 +154,72 @@ LIMIT 5;
 ├─────────────────────────────────────────────────────────┼─────┤
 │"Braveheart"                                             │2    │
 └─────────────────────────────────────────────────────────┴─────┘
+
+MATCH (p:User)-[:RATED]->(m:Movie)-[:IN_GENRE]->(g:Genre)
+WHERE NOT p.name = 'Darlene Garcia' AND g.name IN ['Drama', 'Comedy', 'Romance']
+WITH p AS peer, collect(m.movieId) AS peerMovies
+MATCH (d:User {name: 'Darlene Garcia'})-[:RATED]->(m2:Movie)
+WITH peer, peerMovies, collect(m2.movieId) AS darleneMovies
+WITH peer, apoc.coll.subtract(peerMovies, darleneMovies) AS possRecommendations
+WHERE peer.name IN ['Larry Boyd', 'Crystal Spencer', 'John Herrera', 'Marissa Choi', 'Julia Compton']
+CALL {
+    WITH peer, possRecommendations
+    MATCH (m:Movie)
+    WHERE m.movieId IN possRecommendations AND NOT m.imdbRating IS null 
+    WITH peer, m, m.imdbRating AS rating ORDER BY rating DESC
+    RETURN peer AS p, collect(m)[0..5] AS top5
+}
+WITH peer, p, top5
+UNWIND top5 AS peerTop5
+RETURN DISTINCT peerTop5.title AS Recommendation, count(peerTop5.title) AS Votes, peerTop5.imdbRating AS imdbRating
+ORDER BY imdbRating DESC, Votes DESC
+LIMIT 5;
+
+╒═════════════════════════════════════════════════════════╤═════╤══════════╕
+│Recommendation                                           │Votes│imdbRating│
+╞═════════════════════════════════════════════════════════╪═════╪══════════╡
+│"Lord of the Rings: The Return of the King, The"         │3    │8.9       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Léon: The Professional (a.k.a. The Professional) (Léon)"│5    │8.6       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Saving Private Ryan"                                    │5    │8.6       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Once Upon a Time in the West (C'era una volta il West)" │1    │8.6       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Lion King, The"                                         │3    │8.5       │
+└─────────────────────────────────────────────────────────┴─────┴──────────┘
+
+MATCH (p:User)-[:RATED]->(m:Movie)-[:IN_GENRE]->(g:Genre)
+WHERE NOT p.name = 'Darlene Garcia' AND g.name IN ['Drama', 'Comedy', 'Romance']
+WITH p AS peer, collect(m.movieId) AS peerMovies
+MATCH (d:User {name: 'Darlene Garcia'})-[:RATED]->(m2:Movie)
+WITH peer, peerMovies, collect(m2.movieId) AS darleneMovies
+WITH peer, apoc.coll.subtract(peerMovies, darleneMovies) AS possRecommendations
+WHERE peer.name IN ['Larry Boyd', 'Crystal Spencer', 'John Herrera', 'Marissa Choi', 'Julia Compton']
+CALL {
+    WITH peer, possRecommendations
+    MATCH (m:Movie)
+    WHERE m.movieId IN possRecommendations AND NOT m.imdbRating IS null 
+    WITH peer, m, m.imdbRating AS rating ORDER BY rating DESC
+    RETURN peer AS p, collect(m)[0..5] AS top5
+}
+WITH peer, p, top5
+UNWIND top5 AS peerTop5
+RETURN DISTINCT peerTop5.title AS Recommendation, count(peerTop5.title) AS Votes, peerTop5.imdbRating AS imdbRating
+ORDER BY Votes DESC, imdbRating DESC
+LIMIT 5;
+
+╒═════════════════════════════════════════════════════════╤═════╤══════════╕
+│Recommendation                                           │Votes│imdbRating│
+╞═════════════════════════════════════════════════════════╪═════╪══════════╡
+│"Léon: The Professional (a.k.a. The Professional) (Léon)"│5    │8.6       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Saving Private Ryan"                                    │5    │8.6       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Lord of the Rings: The Return of the King, The"         │3    │8.9       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Lion King, The"                                         │3    │8.5       │
+├─────────────────────────────────────────────────────────┼─────┼──────────┤
+│"Great Dictator, The"                                    │2    │8.5       │
+└─────────────────────────────────────────────────────────┴─────┴──────────┘
+
