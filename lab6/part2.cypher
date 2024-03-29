@@ -5,7 +5,7 @@ MATCH(u:User) -[r:RATED] -> (m:Movie)
 WHERE u.name = "Darlene Garcia"
 SET m.dataset =  CASE WHEN rand() < 0.8 THEN "Train"
                       ELSE "Validation" END
-RETURN m.title, m.dataset ;
+RETURN m.title, m.dataset;
 
 // Step 2: Add Validation label (to use by Native GDS projection)
 MATCH(u:User) -[r:RATED] -(m:Movie)
@@ -29,6 +29,22 @@ CALL gds.graph.project("PeersTrain",
 │{User: {label: "User", properties: {}}, Train: {label: "Train", proper│{RATED: {aggregation: "DEFAULT", orientation: "UNDIRECTED", indexInver│"PeersTrain"│9241     │178926           │63           │
 │ties: {}}}                                                            │se: false, properties: {}, type: "RATED"}}                            │            │         │                 │             │
 └──────────────────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────┴────────────┴─────────┴─────────────────┴─────────────┘
+
+MATCH (t:Train)
+RETURN count(t) AS Train_Count_of_Nodes;
+╒════════════════════╕
+│Train_Count_of_Nodes│
+╞════════════════════╡
+│8588                │
+└────────────────────┘
+
+MATCH (v:Validation)
+RETURN count(v) AS Validation_Count_of_Nodes;
+╒═════════════════════════╕
+│Validation_Count_of_Nodes│
+╞═════════════════════════╡
+│478                      │
+└─────────────────────────┘
 
 CALL gds.fastRP.mutate (
      'PeersTrain', 
@@ -223,4 +239,107 @@ RETURN size(recommendation) AS sizeof_rec ,
 │1035      │494       │0.004     │0.0039    │0.0077    │0.0114    │0.015     │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
+MATCH (darlene:User{name:"Darlene Garcia"})
+CALL { 
+  WITH darlene 
+  MATCH (darlene)-[a:RATED]-(gm)
+  RETURN AVG(a.rating) AS darleneGlobalRating 
+}
+MATCH (darlene)-[r:RATED]-(m)-[:IN_GENRE]->(genre:Genre)
+WITH darlene, genre, darleneGlobalRating, AVG(r.rating) AS darleneAvgRating 
+WHERE darleneAvgRating > darleneGlobalRating
+CALL { 
+  WITH darlene, darleneAvgRating, genre
+  MATCH (darlene)-[:PEER_TRAIN]-(peer:User) - [rate:RATED] ->(m:Movie)-[:IN_GENRE] ->(g:Genre)
+  WHERE 1.0*rate.rating/darleneAvgRating > 1.25 AND g = genre
+  RETURN  m, rate, peer, genre as peerGenre
+  ORDER BY peer.score DESC, rate.rating DESC
+}
+WITH m, ROUND(AVG(rate.rating),2) AS peerRating, COUNT(DISTINCT peer) AS votes, m.imdbRating AS imdbRating, collect(DISTINCT peerGenre.name) as genres
+ORDER BY peerRating * votes DESC
+WITH COLLECT(ID(m)) as recommendation
+CALL {
+  MATCH (mt:Validation) 
+  RETURN collect(ID(mt)) as validation 
+}
+RETURN size(recommendation) AS sizeof_rec, size(validation) AS sizeof_val, 
+    ROUND(gds.similarity.jaccard(recommendation[0..9], validation),4) 
+      AS quality_10,
+    ROUND(gds.similarity.jaccard(recommendation[0..19], validation),4) 
+      AS quality_20, 
+    ROUND(gds.similarity.jaccard(recommendation[0..29], validation),4) 
+      AS quality_30,
+    ROUND(gds.similarity.jaccard(recommendation[0..39], validation),4) 
+      AS quality_40,
+    ROUND(gds.similarity.jaccard(recommendation[0..49], validation),4) 
+      AS quality_50;
 
+// Adding stuff from Lab 4+5?
+MATCH (d:User {name:'Darlene Garcia'})
+CALL {
+  WITH d
+  MATCH (d)-[a:RATED]->(m)
+  RETURN avg(a.rating) AS dGlobalRating
+}
+MATCH (d)-[r:RATED]-(m)-[:IN_GENRE]->(g:Genre)
+WITH d, g, dGlobalRating, avg(r.rating) AS dAvgRating
+WHERE dAvgRating > dGlobalRating
+CALL {
+  WITH d, dAvgRating, g
+  MATCH (d)-[:PEER_TRAIN]-(p:User)-[pr:RATED]->(m:Movie)-[:IN_GENRE]->(g)
+  RETURN m, pr, p, g AS pG
+  ORDER BY p.score DESC, pr.rating DESC
+}
+RETURN DISTINCT p.name AS Peer, count(pr) AS peerRated, round(avg(pr.rating), 2) AS avg_peer_rating
+ORDER BY peerRated DESC, avg_peer_rating DESC
+LIMIT 10;
+
+// 10 Peers from the Recommendation Set
+╒════════════════════╤═════════╤═══════════════╕
+│Peer                │peerRated│avg_peer_rating│
+╞════════════════════╪═════════╪═══════════════╡
+│"Larry Boyd"        │1607     │3.29           │
+├────────────────────┼─────────┼───────────────┤
+│"Aaron Castro"      │1247     │3.91           │
+├────────────────────┼─────────┼───────────────┤
+│"Marissa Choi"      │1119     │3.07           │
+├────────────────────┼─────────┼───────────────┤
+│"Crystal Spencer"   │1059     │3.53           │
+├────────────────────┼─────────┼───────────────┤
+│"Mr. John Johns"    │1022     │3.72           │
+├────────────────────┼─────────┼───────────────┤
+│"John Herrera"      │1002     │3.79           │
+├────────────────────┼─────────┼───────────────┤
+│"Julia Compton"     │973      │3.68           │
+├────────────────────┼─────────┼───────────────┤
+│"Christopher Thomas"│712      │3.53           │
+├────────────────────┼─────────┼───────────────┤
+│"Sue Mason"         │657      │4.09           │
+├────────────────────┼─────────┼───────────────┤
+│"Derrick Collier"   │485      │3.27           │
+└────────────────────┴─────────┴───────────────┘
+
+//Recommendations from the Training Set
+╒═════════════════════════════════╤══════════╤═════╤══════════╤══════════════════════════════╕
+│m.title                          │peerRating│votes│imdbRating│genres                        │
+╞═════════════════════════════════╪══════════╪═════╪══════════╪══════════════════════════════╡
+│"American Beauty"                │4.36      │36   │8.4       │["Drama"]                     │
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Fargo"                          │4.5       │28   │8.2       │["Drama", "Crime", "Thriller"]│
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Schindler's List"               │4.24      │29   │8.9       │["Drama", "War"]              │
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Casablanca"                     │4.6       │26   │8.6       │["Drama"]                     │
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"One Flew Over the Cuckoo's Nest"│4.35      │27   │8.7       │["Drama"]                     │
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Shawshank Redemption, The"      │4.5       │26   │9.3       │["Drama", "Crime"]            │
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Pulp Fiction"                   │4.37      │26   │8.9       │["Drama", "Crime", "Thriller"]│
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Forrest Gump"                   │4.05      │28   │8.8       │["Drama", "War"]              │
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Stand by Me"                    │4.31      │26   │8.1       │["Drama"]                     │
+├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
+│"Godfather, The"                 │4.78      │23   │9.2       │["Drama", "Crime"]            │
+└─────────────────────────────────┴──────────┴─────┴──────────┴──────────────────────────────┘
