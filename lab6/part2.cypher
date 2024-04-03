@@ -250,7 +250,7 @@ WITH darlene, genre, darleneGlobalRating, AVG(r.rating) AS darleneAvgRating
 WHERE darleneAvgRating > darleneGlobalRating
 CALL { 
   WITH darlene, darleneAvgRating, genre
-  MATCH (darlene)-[:PEER_TRAIN]-(peer:User) - [rate:RATED] ->(m:Movie)-[:IN_GENRE] ->(g:Genre)
+  MATCH (darlene)-[:PEER_TRAIN]-(peer:User)-[rate:RATED]->(m:Movie)-[:IN_GENRE] ->(g:Genre)
   WHERE 1.0*rate.rating/darleneAvgRating > 1.25 AND g = genre
   RETURN  m, rate, peer, genre as peerGenre
   ORDER BY peer.score DESC, rate.rating DESC
@@ -287,6 +287,7 @@ WHERE dAvgRating > dGlobalRating
 CALL {
   WITH d, dAvgRating, g
   MATCH (d)-[:PEER_TRAIN]-(p:User)-[pr:RATED]->(m:Movie)-[:IN_GENRE]->(g)
+  WHERE g IN ['Drama', 'Comedy', 'Romance']
   RETURN m, pr, p, g AS pG
   ORDER BY p.score DESC, pr.rating DESC
 }
@@ -294,7 +295,7 @@ RETURN DISTINCT p.name AS Peer, count(pr) AS peerRated, round(avg(pr.rating), 2)
 ORDER BY peerRated DESC, avg_peer_rating DESC
 LIMIT 10;
 
-// 10 Peers from the Recommendation Set
+// 10 Peers from the Training Set
 ╒════════════════════╤═════════╤═══════════════╕
 │Peer                │peerRated│avg_peer_rating│
 ╞════════════════════╪═════════╪═══════════════╡
@@ -343,3 +344,164 @@ LIMIT 10;
 ├─────────────────────────────────┼──────────┼─────┼──────────┼──────────────────────────────┤
 │"Godfather, The"                 │4.78      │23   │9.2       │["Drama", "Crime"]            │
 └─────────────────────────────────┴──────────┴─────┴──────────┴──────────────────────────────┘
+
+MATCH (d:User {name:'Darlene Garcia'})
+CALL {
+  WITH d
+  MATCH (d)-[a:RATED]->(m)
+  RETURN avg(a.rating) AS dGlobalRating
+}
+MATCH (d)-[r:RATED]-(m)-[:IN_GENRE]->(g:Genre)
+WITH d, g, dGlobalRating, avg(r.rating) AS dAvgRating
+WHERE dAvgRating > dGlobalRating
+CALL {
+  WITH d, dAvgRating, g
+  MATCH (d)-[:PEER_TRAIN]-(p:User)-[pr:RATED]->(m:Movie)-[:IN_GENRE]->(g)
+  RETURN m, pr, p, g AS pG
+  ORDER BY p.score DESC, pr.rating DESC
+}
+WITH DISTINCT m, round(avg(pr.rating), 2) AS avg_peer_rating, COUNT(DISTINCT p) AS votes, m.imdbRating AS imdbRating
+ORDER BY avg_peer_rating * votes DESC
+WITH collect(ID(m)) AS recommendation
+CALL {
+    MATCH (mt:Validation)
+    RETURN collect(ID(mt)) AS val_set
+}
+RETURN size(recommendation) AS val_rec, size(val_set) AS val_size,
+round(gds.similarity.jaccard(recommendation[0..9], val_set), 4) AS qual_10,
+round(gds.similarity.jaccard(recommendation[0..19], val_set), 4) AS qual_20,
+round(gds.similarity.jaccard(recommendation[0..29], val_set), 4) AS qual_30,
+round(gds.similarity.jaccard(recommendation[0..39], val_set), 4) AS qual_40,
+round(gds.similarity.jaccard(recommendation[0..49], val_set), 4) AS qual_50
+
+╒═══════╤════════╤═══════╤═══════╤═══════╤═══════╤═══════╕
+│val_rec│val_size│qual_10│qual_20│qual_30│qual_40│qual_50│
+╞═══════╪════════╪═══════╪═══════╪═══════╪═══════╪═══════╡
+│3023   │478     │0.0041 │0.0061 │0.008  │0.0117 │0.0174 │
+└───────┴────────┴───────┴───────┴───────┴───────┴───────┘
+
+// Final Table of Results
+
+// Avg Peer Ratings
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│3774      │494       │0.004     │0.0079    │0.0116    │0.0133    │0.0207    │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+// Greater than Global Avg
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│1796      │494       │0.004     │0.0079    │0.0136    │0.0133    │0.0188    │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+// Above Genre Avg
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│1796      │494       │0.004     │0.0079    │0.0136    │0.0133    │0.0188    │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+// Pref. Genres
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│1035      │494       │0.004     │0.0039    │0.0077    │0.0114    │0.015     │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+// Content and Collaborative Methods
+╒═══════╤════════╤═══════╤═══════╤═══════╤═══════╤═══════╕
+│val_rec│val_size│qual_10│qual_20│qual_30│qual_40│qual_50│
+╞═══════╪════════╪═══════╪═══════╪═══════╪═══════╪═══════╡
+│3023   │478     │0.0041 │0.0061 │0.008  │0.0117 │0.0174 │
+└───────┴────────┴───────┴───────┴───────┴───────┴───────┘
+
+// A Different User
+// Luke Myers - 190 movies
+
+// Step 1: Split Darlene’s movies into two sets. 
+//     Add an attribute "dataset" first that will be 
+//     used to add labels to Movie nodes
+MATCH(u:User) -[r:RATED] -> (m:Movie)
+WHERE u.name = "Luke Myers"
+SET m.dataset =  CASE WHEN rand() < 0.8 THEN "Train"
+                      ELSE "Validation" END
+RETURN m.title, m.dataset;
+
+// Step 2: Add Validation label (to use by Native GDS projection)
+MATCH(u:User) -[r:RATED] -(m:Movie)
+WHERE u.name = "Luke Myers" AND m.dataset = "Validation" 
+SET m:Validation;   
+
+// Step 3: All other movies go into Train set (to use by GDS projection)
+MATCH(u:User) -[r:RATED] -(m:Movie)
+WHERE  m.dataset is NULL OR m.dataset <> "Validation"
+SET m:Train;
+
+// Step 1: Create Projection for Peers identification
+CALL gds.graph.project("PeersTrain", 
+  ["Train", 'User'], 
+  {RATED:{orientation: "UNDIRECTED"}}
+) YIELD *;
+
+
+MATCH (l:User {name:'Luke Myers'})
+CALL {
+  WITH l
+  MATCH (l)-[a:RATED]->(m)
+  RETURN avg(a.rating) AS lGlobalRating
+}
+MATCH (l)-[r:RATED]-(m)-[:IN_GENRE]->(g:Genre)
+WITH l, g, lGlobalRating, avg(r.rating) AS lAvgRating
+WHERE lAvgRating > lGlobalRating
+CALL {
+  WITH l, lAvgRating, g
+  MATCH (l)-[:PEER_TRAIN]-(p:User)-[pr:RATED]->(m:Movie)-[:IN_GENRE]->(g)
+  RETURN m, pr, p, g AS pG
+  ORDER BY p.score DESC, pr.rating DESC
+}
+WITH DISTINCT m, round(avg(pr.rating), 2) AS avg_peer_rating, COUNT(DISTINCT p) AS votes, m.imdbRating AS imdbRating
+ORDER BY avg_peer_rating * votes DESC
+WITH collect(ID(m)) AS recommendation
+CALL {
+    MATCH (mt:Validation)
+    RETURN collect(ID(mt)) AS val_set
+}
+RETURN size(recommendation) AS val_rec, size(val_set) AS val_size,
+round(gds.similarity.jaccard(recommendation[0..9], val_set), 4) AS qual_10,
+round(gds.similarity.jaccard(recommendation[0..19], val_set), 4) AS qual_20,
+round(gds.similarity.jaccard(recommendation[0..29], val_set), 4) AS qual_30,
+round(gds.similarity.jaccard(recommendation[0..39], val_set), 4) AS qual_40,
+round(gds.similarity.jaccard(recommendation[0..49], val_set), 4) AS qual_50
+
+// First method
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│925       │505       │0.0       │0.0116    │0.0152    │0.0187    │0.0203    │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+// Second method
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│704       │505       │0.0039    │0.0077    │0.0133    │0.0168    │0.0221    │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+// Third method
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│486       │505       │0.0039    │0.0058    │0.0114    │0.013     │0.0128    │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+// Fourth method
+╒══════════╤══════════╤══════════╤══════════╤══════════╤══════════╤══════════╕
+│sizeof_rec│sizeof_val│quality_10│quality_20│quality_30│quality_40│quality_50│
+╞══════════╪══════════╪══════════╪══════════╪══════════╪══════════╪══════════╡
+│279       │505       │0.0019    │0.0058    │0.0133    │0.0206    │0.0259    │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+// Lab 4+5
+╒═══════╤════════╤═══════╤═══════╤═══════╤═══════╤═══════╕
+│val_rec│val_size│qual_10│qual_20│qual_30│qual_40│qual_50│
+╞═══════╪════════╪═══════╪═══════╪═══════╪═══════╪═══════╡
+│604    │505     │0.0019 │0.0116 │0.0152 │0.0168 │0.0221 │
+└───────┴────────┴───────┴───────┴───────┴───────┴───────┘
